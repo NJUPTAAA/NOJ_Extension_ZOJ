@@ -1,2 +1,2 @@
-# NOJ_Extensions_Template
-This is a template extension for NOJ Babel
+# NOJ_Extensions_ZOJ
+ZOJ Interface for NOJ
