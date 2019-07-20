@@ -4,63 +4,63 @@
         "compability":"c",
         "language":"cpp",
         "icon":"devicon-cplusplus-plain",
-        "display":"C++(g++ 4.7.2)",
+        "display":"C++ (g++ 4.7.2)",
         "method":"add"
     },{
         "code":"1",
         "compability":"c",
         "language":"c",
         "icon":"devicon-c-plain",
-        "display":"C(gcc 4.7.2)",
+        "display":"C (gcc 4.7.2)",
         "method":"add"
     },{
         "code":"2",
         "compability":"java",
         "language":"java",
         "icon":"devicon-java-plain",
-        "display":"Java(java 1.7.0)",
+        "display":"Java (java 1.7.0)",
         "method":"add"
     },{
         "code":"3",
         "compability":"pascal",
         "language":"pascal",
         "icon":"devicon-devicon-plain",
-        "display":"FPC(fpc 2.6.0)",
+        "display":"FPC (fpc 2.6.0)",
         "method":"add"
     },{
         "code":"4",
         "compability":"python",
         "language":"python",
         "icon":"devicon-python-plain",
-        "display":"Python(Python 2.7.3)",
+        "display":"Python (Python 2.7.3)",
         "method":"add"
     },{
         "code":"5",
         "compability":"perl",
         "language":"perl",
         "icon":"devicon-devicon-plain",
-        "display":"Perl(Perl 5.14.2)",
+        "display":"Perl (Perl 5.14.2)",
         "method":"add"
     },{
         "code":"6",
         "compability":"c",
         "language":"cpp",
         "icon":"devicon-cplusplus-plain",
-        "display":"C++11(g++ 4.7.2)",
+        "display":"C++11 (g++ 4.7.2)",
         "method":"add"
     },{
         "code":"7",
         "compability":"php",
         "language":"php",
         "icon":"devicon-php-plain",
-        "display":"PHP(PHP 5.4.4)",
+        "display":"PHP (PHP 5.4.4)",
         "method":"add"
     },{
         "code":"8",
         "compability":"scheme",
         "language":"scheme",
         "icon":"devicon-devicon-plain",
-        "display":"Scheme(Guile 1.8.8)",
+        "display":"Scheme (Guile 1.8.8)",
         "method":"add"
     }]
 }

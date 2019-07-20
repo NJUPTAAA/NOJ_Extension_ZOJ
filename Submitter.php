@@ -12,34 +12,46 @@ class Submitter extends Curl
     protected $sub;
     public $post_data=[];
     protected $selectedJudger;
+    public $oid;
 
     public function __construct(& $sub, $all_data)
     {
         $this->sub=& $sub;
         $this->post_data=$all_data;
         $judger=new JudgerModel();
-        $judger_list=$judger->list(4);
+        $this->oid=OJModel::oid('hdu');
+        if(is_null($this->oid)) {
+            throw new Exception("Online Judge Not Found");
+        }
+        $judger_list=$judger->list($this->oid);
         $this->selectedJudger=$judger_list[array_rand($judger_list)];
+    }
+
+    private static function find($pattern, $subject)
+    {
+        if (preg_match($pattern, $subject, $matches)) {
+            return $matches[1];
+        }
+        return null;
     }
 
     private function _login()
     {
         $response=$this->grab_page([
-            "site"=>'http://poj.org',
-            "oj"=>'poj',
+            "site"=>'http://acm.zju.edu.cn/onlinejudge',
+            "oj"=>'zoj',
             "handle"=>$this->selectedJudger["handle"]
         ]);
-        if (strpos($response, 'Log Out')===false) {
+        if (strpos($response, 'login.do') !== false) {
             $params=[
-                'user_id1' => $this->selectedJudger["handle"],
-                'password1' => $this->selectedJudger["password"],
-                'B1' => 'login',
+                'handle' => $this->selectedJudger["handle"],
+                'password' => $this->selectedJudger["password"],
+                'rememberMe' => 'On'
             ];
             $this->login([
-                "url"=>'http://poj.org/login',
+                "url"=>'http://acm.zju.edu.cn/onlinejudge/login.do',
                 "data"=>http_build_query($params),
-                "oj"=>'poj',
-                "ret"=>true,
+                "oj"=>'zoj',
                 "handle"=>$this->selectedJudger["handle"]
             ]);
         }
@@ -47,17 +59,18 @@ class Submitter extends Curl
 
     private function _submit()
     {
+        $res = Requests::get("http://acm.zju.edu.cn/onlinejudge/showProblem.do?problemCode=".$this->post_data['iid']);
+        $submitID = self::find('/problemId=([\s\S]*?)\"><font/',$res->body);
         $params=[
-            'problem_id' => $this->post_data['iid'],
-            'language' => $this->post_data['lang'],
-            'source' => base64_encode($this->post_data["solution"]),
-            'encoded' => 1, // Optional, but sometimes base64 seems smaller than url encode
+            'languageId' => $this->post_data['lang'],
+            'problemId' => $submitID,
+            'source' => $this->post_data["solution"],
         ];
 
         $response=$this->post_data([
-            "site"=>"http://poj.org/submit",
+            "site"=>"http://acm.zju.edu.cn/onlinejudge/submit.do",
             "data"=>http_build_query($params),
-            "oj"=>"poj",
+            "oj"=>"zoj",
             "ret"=>true,
             "follow"=>false,
             "returnHeader"=>true,
@@ -65,16 +78,12 @@ class Submitter extends Curl
             "extraHeaders"=>[],
             "handle"=>$this->selectedJudger["handle"]
         ]);
-
-        if (!preg_match('/Location: .*\/status/', $response, $match)) {
+        $this->sub['jid'] = $this->selectedJudger['jid'];
+        $res=Requests::get('http://acm.zju.edu.cn/onlinejudge/showRuns.do?contestId=1&problemCode='.$this->post_data['iid'].'&handle='.$this->selectedJudger["handle"]);
+        if (!preg_match('/<td class="runId">(\d+)<\/td>/', $res->body, $match)) {
             $this->sub['verdict']='Submission Error';
         } else {
-            $res=Requests::get('http://poj.org/status?problem_id='.$this->post_data['iid'].'&user_id='.urlencode($this->selectedJudger["handle"]));
-            if (!preg_match('/<tr align=center><td>(\d+)<\/td>/', $res->body, $match)) {
-                $this->sub['verdict']='Submission Error';
-            } else {
-                $this->sub['remote_id']=$match[1];
-            }
+            $this->sub['remote_id']=$match[1];
         }
     }
 
