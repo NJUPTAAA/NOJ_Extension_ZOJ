@@ -60,29 +60,25 @@ class Crawler extends CrawlerBase
             if (strpos($src, '://')!==false) {
                 $url=$src;
             } elseif ($src[0]=='/') {
-                $url='http://poj.org'.$src;
+                $url='http://acm.zju.edu.cn/onlinejudge'.$src;
             } else {
-                $url='http://poj.org/'.$src;
+                $url='http://acm.zju.edu.cn/onlinejudge/'.$src;
             }
-            $res=Requests::get($url, ['Referer' => 'http://poj.org']);
+            $res=Requests::get($url, ['Referer' => 'http://acm.zju.edu.cn/onlinejudge']);
             $ext=['image/jpeg'=>'.jpg', 'image/png'=>'.png', 'image/gif'=>'.gif', 'image/bmp'=>'.bmp'];
-            if (isset($res->headers['content-type'])) {
-                $cext=$ext[$res->headers['content-type']];
+            $pos=strpos($ele->src, '.',-1);
+            if ($pos===false) {
+                $cext='';
             } else {
-                $pos=strpos($ele->src, '.');
-                if ($pos===false) {
-                    $cext='';
-                } else {
-                    $cext=substr($ele->src, $pos);
-                }
+                $cext=substr($ele->src, $pos);
             }
             $fn=$this->con.'_'.($this->imgi++).$cext;
-            $dir=base_path("public/external/poj/img");
+            $dir=base_path("public/external/zoj/img");
             if (!file_exists($dir)) {
                 mkdir($dir, 0755, true);
             }
-            file_put_contents(base_path("public/external/poj/img/$fn"), $res->body);
-            $ele->src='/external/poj/img/'.$fn;
+            file_put_contents(base_path("public/external/zoj/img/$fn"), $res->body);
+            $ele->src='/external/zoj/img/'.$fn;
         }
         return $dom;
     }
@@ -125,7 +121,7 @@ class Crawler extends CrawlerBase
         if($this->action=="crawl_problem") $this->line("<fg=yellow>Crawling:   </>{$this->prefix}{$con}");
         elseif($this->action=="update_problem") $this->line("<fg=yellow>Updating:   </>{$this->prefix}{$con}");
         else return;
-        $res=Requests::get("http://http://acm.zju.edu.cn/onlinejudge/showProblem.do?problemCode={$con}");
+        $res=Requests::get("http://acm.zju.edu.cn/onlinejudge/showProblem.do?problemCode={$con}");
         if (strpos($res->body, 'No such problem.')!==false) {
             $this->line("\n  <bg=red;fg=white> Exception </> : <fg=yellow>Can not find problem.</>\n");
             throw new Exception("Can not find problem");
@@ -137,34 +133,34 @@ class Crawler extends CrawlerBase
         $this->pro['origin']="http://http://acm.zju.edu.cn/onlinejudge/showProblem.do?problemCode={$con}";
         
         $this->pro['title']=self::find('/<span class="bigProblemTitle">([\s\S]*?)<\/span>/',$res->body);
-        $this->pro['time_limit'] = intval(self::find('/Time Limit: </font> ([\s\S]*?) Second/',$res->body))*1000;
-        $this->pro['memory_limit'] = self::find('/Memory Limit: </font> ([\s\S]*?) KB/',$res->body);
+        $this->pro['time_limit'] = intval(self::find('/Time Limit: <\/font> ([\s\S]*?) Second/',$res->body))*1000;
+        $this->pro['memory_limit'] = self::find('/Memory Limit: <\/font> ([\s\S]*?) KB/',$res->body);
         $this->pro['solved_count'] = 0;
         $this->pro['input_type'] = 'standard input';
         $this->pro['output_type'] = 'standard output';
-
         if(strpos($res->body, "Input</") != false) {
-            $this->pro['description'] = self::find("/KB[\s\S]*?</center><hr />([\s\S]*?)>[\s]*Input",$res->body);
-            $this->pro['input'] = self::find('/>[\s]*Input([\s\S]*?)>[\s]*Out?put/',$res->body);
-            $this->pro['output'] = self::find('/>[\s]*Out?put([\s\S]*?)>[\s]*Sample Input/',$res->body);
+            $this->pro['description'] = strip_tags($this->cacheImage(HtmlDomParser::str_get_html(self::find("/KB[\s\S]*<hr>([\s\S]*?)>[\s]*Input/",$res->body), true, true, DEFAULT_TARGET_CHARSET, false)));
+            $this->pro['input'] = strip_tags(self::find('/>[\s]*Input([\s\S]*?)>[\s]*Out?put/',$res->body));
+            $this->pro['output'] = strip_tags(self::find('/>[\s]*Out?put([\s\S]*?)>[\s]*Sample Input/',$res->body));
             $this->pro['sample'] = [];
+            $sample_output = trim(strip_tags(self::find("/>Sample Out?put([\s\S]*?)<hr/",$res->body)));
+            if(strpos($sample_output,"Hint") != false) {
+                $length = strpos($sample_output,"Hint");
+                $sample_output = substr($sample_output,0,$length);
+            }
             $this->pro['sample'][] = [
-                'sample_input'=>self::find("/>[\s]*Sample Input([\s\S]*?)>[\s]*Sample Out?put/",$res->body),
-                'sample_output'=>self::find("/>[\s]*Sample Out?put([\s\S]*?)<hr/",$res->body)
+                'sample_input'=>trim(strip_tags(self::find("/>[\s]*Sample Input([\s\S]*?)>[\s]*(Sample Out?put|Output for the Sample Input)/",$res->body))),
+                'sample_output'=>$sample_output
             ];
         } else {
-            $this->line("\n  <bg=yellow;fg=white> Warning </> : <fg=red>Missing information.</>\n");
-            $this->pro['description'] = $this->cacheImage(HtmlDomParser::str_get_html(self::find("/KB[\s\S]*?</center><hr />([\s\S]*?)<hr />",$res->body), true, true, DEFAULT_TARGET_CHARSET, false));
+            $this->line("\n  <bg=yellow;fg=black> Warning </> : <fg=red>Missing information.</>\n");
+            $this->pro['description'] = $this->cacheImage(HtmlDomParser::str_get_html(self::find("/KB[\s\S]*<hr>([\s\S]*?)<hr>/",$res->body), true, true, DEFAULT_TARGET_CHARSET, false));
             $this->pro['input'] = "";
             $this->pro['output'] = "";
             $this->pro["sample"] = [];
-            $this->pro["sample"][] = [
-                "sample_input" => "",
-                "sample_output" => ""
-            ];
         }
-        $this->pro['note'] = strip_tags(self::find('/>[\s]*Hint:([\s\S]*?)<hr/',$res->body));
-        $this->pro['source'] = self::find('/Source:\s*<strong>([\s\S]*?)<\/strong><br \/>/',$res->body);
+        $this->pro['note'] = strip_tags(self::find('/Hint([\s\S]*?)<hr/',$res->body));
+        $this->pro['source'] = strip_tags(self::find('/Source:\s*<strong>([\s\S]*?)<\/strong><br>/',$res->body));
         if($this->pro['source'] === "") {
             $this->pro['source'] = $this->pro['pcode'];
         }
