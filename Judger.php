@@ -17,13 +17,13 @@ class Judger extends Curl
         'Time Limit Exceeded'=>"Time Limit Exceed",
         "Memory Limit Exceeded"=>"Memory Limit Exceed",
         'Wrong Answer'=>"Wrong Answer",
-        'Runtime Error'=>"Runtime Error",
+        'Segmentation Error'=>"Runtime Error",
+        'Non-zero Exit Code'=>'Runtime Error',
+        'Floating Point Error'=>'Runtime Error',
         'Output Limit Exceeded'=>"Output Limit Exceeded",
-        'Compile Error'=>"Compile Error",
+        'Compilation Error'=>"Compile Error",
     ];
     private $model=[];
-    private $template=[];
-
 
     public function __construct()
     {
@@ -33,49 +33,20 @@ class Judger extends Curl
 
     public function judge($row)
     {
-        $sub=[];
+        $sub = [];
+        $response = Requests::get("http://http://acm.zju.edu.cn/onlinejudge/showRuns.do?contestId=1&idEnd=".$row['remote_id']);
+        preg_match ('/<td class="runId">[\s\S]*?judgeReply[\s\S]*?">([\s\S]*?)<\/span>[\s\S]*?runTime">([\s\S]*?)<\/td>[\s\S]*?runMemory">([\s\S]*?)<\/td>/', $response->body, $matches);
+        $sub['verdict'] = $verdict[trim(strip_tags($matches[1]))];
+        $sub['remote_id'] = $row['remote_id'];
+        $sub['time'] = intval($matches[2]);
+        $sub['memory'] = intval($matches[3]);
 
-        if (!isset($this->poj[$row['remote_id']])) {
-            $judgerDetail=$this->model["judgerModel"]->detail($row['jid']);
-            $this->appendPOJStatus($judgerDetail['handle'], $row['remote_id']);
-            if (!isset($this->poj[$row['remote_id']])) {
-                return;
-            }
-        }
-
-        $status=$this->poj[$row['remote_id']];
-        $sub['verdict']=$this->verdict[$status['verdict']];
-
-        if ($sub['verdict']=='Compile Error') {
-            try {
-                $res=Requests::get('http://poj.org/showcompileinfo?solution_id='.$row['remote_id']);
-                preg_match('/<pre>([\s\S]*)<\/pre>/', $res->body, $match);
-                $sub['compile_info']=html_entity_decode($match[1], ENT_QUOTES);
-            } catch (Exception $e) {
-            }
-        }
-
-        $sub["score"]=$sub['verdict']=="Accepted" ? 1 : 0;
-        $sub['time']=$status['time'];
-        $sub['memory']=$status['memory'];
-        $sub['remote_id']=$row['remote_id'];
+        // Seems ZOJ no longer provides Compile Info.
+        // if($sub['verdict'] == 'Compile Error') {
+        //     $ret = Requests::get("http://acm.zju.edu.cn/onlinejudge/showJudgeComment.do?submissionId=".$row['remote_id']);
+        //     $sub['compile_info'] = $ret->body;
+        // }
 
         $this->model["submissionModel"]->updateSubmission($row['sid'], $sub);
-    }
-
-    private function appendPOJStatus($judger, $first=null)
-    {
-        if ($first!==null) {
-            $first++;
-        }
-        $res=Requests::get("http://poj.org/status?user_id={$judger}&top={$first}");
-        $rows=preg_match_all('/<tr align=center><td>(\d+)<\/td><td>.*?<\/td><td>.*?<\/td><td>.*?<font color=.*?>(.*?)<\/font>.*?<\/td><td>(\d*)K?<\/td><td>(\d*)(?:MS)?<\/td>/', $res->body, $matches);
-        for ($i=0; $i<$rows; $i++) {
-            $this->poj[$matches[1][$i]]=[
-                'verdict'=>$matches[2][$i],
-                'memory'=>$matches[3][$i] ? $matches[3][$i] : 0,
-                'time'=>$matches[4][$i] ? $matches[4][$i] : 0,
-            ];
-        }
     }
 }
