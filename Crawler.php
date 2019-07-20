@@ -1,5 +1,5 @@
 <?php
-namespace App\Babel\Extension\template;//The 'template' should be replaced by the real oj code.
+namespace App\Babel\Extension\zoj;//The 'template' should be replaced by the real oj code.
 
 use App\Babel\Crawl\CrawlerBase;
 use App\Models\ProblemModel;
@@ -11,26 +11,28 @@ use Exception;
 class Crawler extends CrawlerBase
 {
     public $oid=null;
-    public $prefix="Template";//The 'Template' should be replaced by the real oj name.
+    public $prefix="ZOJ";
     private $con;
     private $imgi;
+    private $action;
+    private $cached;
     /**
      * Initial
      *
      * @return Response
      */
-    public function __construct($conf)
+    public function start($conf)
     {
-        $action=isset($conf["action"])?$conf["action"]:'crawl_problem';
+        $this->action=isset($conf["action"])?$conf["action"]:'crawl_problem';
         $con=isset($conf["con"])?$conf["con"]:'all';
-        $cached=isset($conf["cached"])?$conf["cached"]:false;
-        $this->oid=OJModel::oid('template');//The 'template' should be replaced by the real oj code.
+        $this->cached=isset($conf["cached"])?$conf["cached"]:false;
+        $this->oid=OJModel::oid('zoj');
 
         if(is_null($this->oid)) {
             throw new Exception("Online Judge Not Found");
         }
 
-        if ($action=='judge_level') {
+        if ($this->action=='judge_level') {
             $this->judge_level();
         } else {
             $this->crawl($con);
@@ -50,21 +52,9 @@ class Crawler extends CrawlerBase
         return null;
     }
 
-    private function getDOM($html, $start, $end)
-    {
-        if ($start===false || $end===false) {
-            throw new Exception("Missing keywords.");
-        }
-        return $this->cacheImage(HtmlDomParser::str_get_html(substr($html, $start, $end-$start), true, true, DEFAULT_TARGET_CHARSET, false));
-    }
-
-    private function getInnertext($html, $start, $end, $tag)
-    {
-        return $this->getDOM($html, $start, $end)->find($tag, 0)->innertext();
-    }
-
     private function cacheImage($dom)
     {
+        if(!$dom) return $dom;
         foreach ($dom->find('img') as $ele) {
             $src=str_replace('\\', '/', $ele->src);
             if (strpos($src, '://')!==false) {
@@ -97,71 +87,87 @@ class Crawler extends CrawlerBase
         return $dom;
     }
 
-    public function crawl($con)
+    public function crawl($con) 
     {
-        if ($con=='all') {
-            // TODO
+        if($con == "all") {
+            $lastProbID = 4137; // Too hard to get the explicit ID;
+            foreach(range(1001, $lastProbID) as $probID) {
+                $this->_crawl($probID);
+            }
+        } else {
+            $this->_crawl($con);
+        }
+    }
+
+    protected function _crawl($con, $retry=1)
+    {
+        $attempts=1;
+        while($attempts <= $retry){
+            try{
+                $this->crawlProblem($con);
+            }catch(Exception $e){
+                $attempts++;
+                continue;
+            }
+            break;
+        }
+    }
+
+    public function crawlProblem($con)
+    {
+        $this->_resetPro();
+        $this->con = $con;
+        $this->imgi = 1;
+        $problemModel=new ProblemModel();
+        if(!empty($problemModel->basic($problemModel->pid($this->prefix.$con))) && $this->action=="update_problem"){
             return;
         }
-        $this->con=$con;
-        $this->imgi=1;
-        $problemModel=new ProblemModel();
-        $res=Requests::get("http://poj.org/problem?id={$con}&lang=zh-CN&change=true"); // I have no idea what does `change` refers to
-        if (strpos($res->body, 'Can not find problem')!==false) {
-            header('HTTP/1.1 404 Not Found');
-            die();
+        if($this->action=="crawl_problem") $this->line("<fg=yellow>Crawling:   </>{$this->prefix}{$con}");
+        elseif($this->action=="update_problem") $this->line("<fg=yellow>Updating:   </>{$this->prefix}{$con}");
+        else return;
+        $res=Requests::get("http://http://acm.zju.edu.cn/onlinejudge/showProblem.do?problemCode={$con}");
+        if (strpos($res->body, 'No such problem.')!==false) {
+            $this->line("\n  <bg=red;fg=white> Exception </> : <fg=yellow>Can not find problem.</>\n");
+            throw new Exception("Can not find problem");
         }
         $this->pro['pcode']=$this->prefix.$con;
         $this->pro['OJ']=$this->oid;
         $this->pro['contest_id']=null;
         $this->pro['index_id']=$con;
-        $this->pro['origin']="http://poj.org/problem?id={$con}&lang=zh-CN&change=true";
-        $this->pro['title']=self::find('/<div class="ptt" lang=".*?">([\s\S]*?)<\/div>/', $res->body);
-        $this->pro['time_limit']=self::find('/Time Limit:.*?(\d+)MS/', $res->body);
-        $this->pro['memory_limit']=self::find('/Memory Limit:.*?(\d+)K/', $res->body);
-        $this->pro['solved_count']=self::find('/Accepted:.*?(\d+)/', $res->body);
-        $this->pro['input_type']='standard input';
-        $this->pro['output_type']='standard output';
-        $descPattern='<p class="pst">Description</p>';
-        $inputPattern='<p class="pst">Input</p>';
-        $outputPattern='<p class="pst">Output</p>';
-        $sampleInputPattern='<p class="pst">Sample Input</p>';
-        $sampleOutputPattern='<p class="pst">Sample Output</p>';
-        $notePattern='<p class="pst">Hint</p>';
-        $sourcePattern='<p class="pst">Source</p>';
-        $endPattern='</td>';
+        $this->pro['origin']="http://http://acm.zju.edu.cn/onlinejudge/showProblem.do?problemCode={$con}";
+        
+        $this->pro['title']=self::find('/<span class="bigProblemTitle">([\s\S]*?)<\/span>/',$res->body);
+        $this->pro['time_limit'] = intval(self::find('/Time Limit: </font> ([\s\S]*?) Second/',$res->body))*1000;
+        $this->pro['memory_limit'] = self::find('/Memory Limit: </font> ([\s\S]*?) KB/',$res->body);
+        $this->pro['solved_count'] = 0;
+        $this->pro['input_type'] = 'standard input';
+        $this->pro['output_type'] = 'standard output';
 
-        $pos1=strpos($res->body, $descPattern)+strlen($descPattern);
-        $pos2=strpos($res->body, $inputPattern, $pos1);
-        $this->pro['description']=trim($this->getInnertext($res->body, $pos1, $pos2, 'div'));
-        $pos1=$pos2+strlen($inputPattern);
-        $pos2=strpos($res->body, $outputPattern, $pos1);
-        $this->pro['input']=trim($this->getInnertext($res->body, $pos1, $pos2, 'div'));
-        $pos1=$pos2+strlen($outputPattern);
-        $pos2=strpos($res->body, $sampleInputPattern, $pos1);
-        $this->pro['output']=trim($this->getInnertext($res->body, $pos1, $pos2, 'div'));
-        $pos1=$pos2+strlen($sampleInputPattern);
-        $pos2=strpos($res->body, $sampleOutputPattern, $pos1);
-        $sampleInput=$this->getInnertext($res->body, $pos1, $pos2, 'pre');
-        $pos1=$pos2+strlen($sampleOutputPattern);
-        $pos2=strpos($res->body, $notePattern, $pos1);
-        if ($hasNote=($pos2!==false)) {
-            $sampleOutput=$this->getInnertext($res->body, $pos1, $pos2, 'pre');
-            $pos1=$pos2+strlen($notePattern);
-        }
-        $pos2=strpos($res->body, $sourcePattern, $pos1);
-        $temp=$this->getDOM($res->body, $pos1, $pos2);
-        if ($hasNote) {
-            $this->pro['note']=trim($temp->find('div', 0)->innertext());
+        if(strpos($res->body, "Input</") != false) {
+            $this->pro['description'] = self::find("/KB[\s\S]*?</center><hr />([\s\S]*?)>[\s]*Input",$res->body);
+            $this->pro['input'] = self::find('/>[\s]*Input([\s\S]*?)>[\s]*Out?put/',$res->body);
+            $this->pro['output'] = self::find('/>[\s]*Out?put([\s\S]*?)>[\s]*Sample Input/',$res->body);
+            $this->pro['sample'] = [];
+            $this->pro['sample'][] = [
+                'sample_input'=>self::find("/>[\s]*Sample Input([\s\S]*?)>[\s]*Sample Out?put/",$res->body),
+                'sample_output'=>self::find("/>[\s]*Sample Out?put([\s\S]*?)<hr/",$res->body)
+            ];
         } else {
-            $sampleOutput=$temp->find('pre', 0)->innertext();
-            $this->pro['note']=null;
+            $this->line("\n  <bg=yellow;fg=white> Warning </> : <fg=red>Missing information.</>\n");
+            $this->pro['description'] = $this->cacheImage(HtmlDomParser::str_get_html(self::find("/KB[\s\S]*?</center><hr />([\s\S]*?)<hr />",$res->body), true, true, DEFAULT_TARGET_CHARSET, false));
+            $this->pro['input'] = "";
+            $this->pro['output'] = "";
+            $this->pro["sample"] = [];
+            $this->pro["sample"][] = [
+                "sample_input" => "",
+                "sample_output" => ""
+            ];
         }
-        $this->pro['sample']=[['sample_input'=>$sampleInput, 'sample_output'=>$sampleOutput]];
-        $pos1=$pos2+strlen($sourcePattern);
-        $pos2=strpos($res->body, $endPattern, $pos1);
-        $this->pro['source']=trim($this->getDOM($res->body, $pos1, $pos2)->find('div', 0)->find('a', 0)->innertext());
-
+        $this->pro['note'] = strip_tags(self::find('/>[\s]*Hint:([\s\S]*?)<hr/',$res->body));
+        $this->pro['source'] = self::find('/Source:\s*<strong>([\s\S]*?)<\/strong><br \/>/',$res->body);
+        if($this->pro['source'] === "") {
+            $this->pro['source'] = $this->pro['pcode'];
+        }
         $problem=$problemModel->pid($this->pro['pcode']);
 
         if ($problem) {
@@ -171,6 +177,7 @@ class Crawler extends CrawlerBase
             $new_pid=$this->insertProblem($this->oid);
         }
 
-        // $problemModel->addTags($new_pid, $tag); // not present
+        if($this->action=="crawl_problem") $this->line("<fg=green>Crawled:    </>{$this->prefix}{$con}");
+        elseif($this->action=="update_problem") $this->line("<fg=green>Updated:    </>{$this->prefix}{$con}");
     }
 }

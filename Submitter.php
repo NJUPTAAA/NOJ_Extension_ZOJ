@@ -1,5 +1,5 @@
 <?php
-namespace App\Babel\Extension\template;
+namespace App\Babel\Extension\zoj;
 
 use App\Babel\Submit\Curl;
 use App\Models\CompilerModel;
