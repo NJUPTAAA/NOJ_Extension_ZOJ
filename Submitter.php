@@ -4,6 +4,7 @@ namespace App\Babel\Extension\zoj;
 use App\Babel\Submit\Curl;
 use App\Models\CompilerModel;
 use App\Models\JudgerModel;
+use App\Models\OJModel;
 use Illuminate\Support\Facades\Validator;
 use Requests;
 
