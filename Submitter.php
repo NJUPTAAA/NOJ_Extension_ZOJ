@@ -20,7 +20,7 @@ class Submitter extends Curl
         $this->sub=& $sub;
         $this->post_data=$all_data;
         $judger=new JudgerModel();
-        $this->oid=OJModel::oid('hdu');
+        $this->oid=OJModel::oid('zoj');
         if(is_null($this->oid)) {
             throw new Exception("Online Judge Not Found");
         }
