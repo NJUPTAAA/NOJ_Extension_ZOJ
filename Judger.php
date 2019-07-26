@@ -34,9 +34,9 @@ class Judger extends Curl
     public function judge($row)
     {
         $sub = [];
-        $response = Requests::get("http://http://acm.zju.edu.cn/onlinejudge/showRuns.do?contestId=1&idEnd=".$row['remote_id']);
+        $response = Requests::get("http://acm.zju.edu.cn/onlinejudge/showRuns.do?contestId=1&idEnd=".$row['remote_id']);
         preg_match ('/<td class="runId">[\s\S]*?judgeReply[\s\S]*?">([\s\S]*?)<\/span>[\s\S]*?runTime">([\s\S]*?)<\/td>[\s\S]*?runMemory">([\s\S]*?)<\/td>/', $response->body, $matches);
-        $sub['verdict'] = $verdict[trim(strip_tags($matches[1]))];
+        $sub['verdict'] = $this->verdict[trim(strip_tags($matches[1]))];
         $sub['remote_id'] = $row['remote_id'];
         $sub['time'] = intval($matches[2]);
         $sub['memory'] = intval($matches[3]);

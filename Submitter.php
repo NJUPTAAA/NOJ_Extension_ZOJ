@@ -7,6 +7,7 @@ use App\Models\JudgerModel;
 use App\Models\OJModel;
 use Illuminate\Support\Facades\Validator;
 use Requests;
+use Log;
 
 class Submitter extends Curl
 {
@@ -80,9 +81,10 @@ class Submitter extends Curl
             "handle"=>$this->selectedJudger["handle"]
         ]);
         $this->sub['jid'] = $this->selectedJudger['jid'];
-        $res=Requests::get('http://acm.zju.edu.cn/onlinejudge/showRuns.do?contestId=1&problemCode='.$this->post_data['iid'].'&handle='.$this->selectedJudger["handle"]);
-        if (!preg_match('/<td class="runId">(\d+)<\/td>/', $res->body, $match)) {
-            $this->sub['verdict']='Submission Error';
+        //$res=Requests::get('http://acm.zju.edu.cn/onlinejudge/showRuns.do?contestId=1&problemCode='.$this->post_data['iid'].'&handle='.$this->selectedJudger["handle"]);
+        if (!preg_match('/The submission id is <font color=\'red\'>(\d+)<\/font>/', $response, $match)) {
+            // $this->sub['verdict']='Submission Error';
+            throw new \Exception("Submission Error");
         } else {
             $this->sub['remote_id']=$match[1];
         }
