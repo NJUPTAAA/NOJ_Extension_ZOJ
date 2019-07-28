@@ -8,6 +8,7 @@ use App\Models\OJModel;
 use Illuminate\Support\Facades\Validator;
 use Requests;
 use Log;
+use Exception;
 
 class Submitter extends Curl
 {
@@ -39,28 +40,22 @@ class Submitter extends Curl
 
     private function _login()
     {
-        $response=$this->grab_page([
-            "site"=>'http://acm.zju.edu.cn/onlinejudge',
+        $params=[
+            'handle' => $this->selectedJudger["handle"],
+            'password' => $this->selectedJudger["password"],
+            'rememberMe' => 'on'
+        ];
+        $this->login([
+            "url"=>'http://acm.zju.edu.cn/onlinejudge/login.do',
+            "data"=>http_build_query($params),
             "oj"=>'zoj',
             "handle"=>$this->selectedJudger["handle"]
         ]);
-        if (strpos($response, 'login.do') !== false) {
-            $params=[
-                'handle' => $this->selectedJudger["handle"],
-                'password' => $this->selectedJudger["password"],
-                'rememberMe' => 'On'
-            ];
-            $this->login([
-                "url"=>'http://acm.zju.edu.cn/onlinejudge/login.do',
-                "data"=>http_build_query($params),
-                "oj"=>'zoj',
-                "handle"=>$this->selectedJudger["handle"]
-            ]);
-        }
     }
 
     private function _submit()
     {
+        $this->_login();
         $res = Requests::get("http://acm.zju.edu.cn/onlinejudge/showProblem.do?problemCode=".$this->post_data['iid']);
         $submitID = self::find('/problemId=([\s\S]*?)\"><font/',$res->body);
         $params=[
@@ -68,9 +63,8 @@ class Submitter extends Curl
             'problemId' => $submitID,
             'source' => $this->post_data["solution"],
         ];
-
         $response=$this->post_data([
-            "site"=>"http://acm.zju.edu.cn/onlinejudge/submit.do",
+            "site"=>"http://acm.zju.edu.cn/onlinejudge/submit.do?problemId=".$submitID,
             "data"=>http_build_query($params),
             "oj"=>"zoj",
             "ret"=>true,
@@ -81,10 +75,8 @@ class Submitter extends Curl
             "handle"=>$this->selectedJudger["handle"]
         ]);
         $this->sub['jid'] = $this->selectedJudger['jid'];
-        //$res=Requests::get('http://acm.zju.edu.cn/onlinejudge/showRuns.do?contestId=1&problemCode='.$this->post_data['iid'].'&handle='.$this->selectedJudger["handle"]);
         if (!preg_match('/The submission id is <font color=\'red\'>(\d+)<\/font>/', $response, $match)) {
-            // $this->sub['verdict']='Submission Error';
-            throw new \Exception("Submission Error");
+            $this->sub['verdict'] = "Submission Error";
         } else {
             $this->sub['remote_id']=$match[1];
         }
@@ -104,7 +96,6 @@ class Submitter extends Curl
             return;
         }
 
-        $this->_login();
         $this->_submit();
     }
 }
