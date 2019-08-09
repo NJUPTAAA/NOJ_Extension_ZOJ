@@ -147,14 +147,18 @@ class Crawler extends CrawlerBase
             $this->pro['output'] = strip_tags(self::find('/>[\s]*Out?put([\s\S]*?)>[\s]*Sample Input/',$res->body));
             $this->pro['output'] = str_replace("$", "$$$", $this->pro['output']);
             $this->pro['sample'] = [];
-            $sample_output = trim(strip_tags(self::find("/>Sample Out?put([\s\S]*?)<hr/",$res->body)));
+            $sample_output = self::find("/Sample Out?put:?([\s\S]*?)<hr/",$res->body);
+            $sample_output = str_replace("<br>\n  ","\n",$sample_output);
+            $sample_output = trim(\strip_tags($sample_output));
+            $sample_input = self::find("/>[\s]*Sample Input([\s\S]*?)>[\s]*(Sample Out?put|Output for the Sample Input)/",$res->body);
+            $sample_input = str_replace("<br>\n  ","\n",$sample_input);
             if(strpos($sample_output,"Hint") !== false) {
                 $length = strpos($sample_output,"Hint");
                 $sample_output = substr($sample_output,0,$length);
             }
             $this->pro['sample'][] = [
-                'sample_input'=>trim(strip_tags(self::find("/>[\s]*Sample Input([\s\S]*?)>[\s]*(Sample Out?put|Output for the Sample Input)/",$res->body))),
-                'sample_output'=>$sample_output
+                'sample_input'=>trim(strip_tags($sample_input)),
+                'sample_output'=>trim($sample_output),
             ];
         } else {
             $this->line("\n  <bg=yellow;fg=black> Warning </> : <fg=red>Missing information.</>\n");
@@ -164,6 +168,7 @@ class Crawler extends CrawlerBase
             $this->pro["sample"] = [];
         }
         $this->pro['note'] = strip_tags(self::find('/Hint([\s\S]*?)<hr/',$res->body));
+        $this->pro['note'] = str_replace("$", "$$$", $this->pro['note']);
         $this->pro['source'] = strip_tags(self::find('/Source:\s*<strong>([\s\S]*?)<\/strong><br>/',$res->body));
         if($this->pro['source'] === "") {
             $this->pro['source'] = $this->pro['pcode'];
