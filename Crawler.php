@@ -7,6 +7,7 @@ use App\Models\OJModel;
 use KubAT\PhpSimple\HtmlDomParser;
 use Requests;
 use Exception;
+use Log;
 
 class Crawler extends CrawlerBase
 {
@@ -66,7 +67,7 @@ class Crawler extends CrawlerBase
             }
             $res=Requests::get($url, ['Referer' => 'http://acm.zju.edu.cn/onlinejudge']);
             $ext=['image/jpeg'=>'.jpg', 'image/png'=>'.png', 'image/gif'=>'.gif', 'image/bmp'=>'.bmp'];
-            $pos=strpos($ele->src, '.',-1);
+            $pos=strripos($ele->src,'.');
             if ($pos===false) {
                 $cext='';
             } else {
@@ -138,13 +139,16 @@ class Crawler extends CrawlerBase
         $this->pro['solved_count'] = 0;
         $this->pro['input_type'] = 'standard input';
         $this->pro['output_type'] = 'standard output';
-        if(strpos($res->body, "Input</") != false) {
+        if(strpos($res->body, "Input</") !== false) {
             $this->pro['description'] = strip_tags($this->cacheImage(HtmlDomParser::str_get_html(self::find("/KB[\s\S]*<hr>([\s\S]*?)>[\s]*Input/",$res->body), true, true, DEFAULT_TARGET_CHARSET, false)));
+            $this->pro['description'] = str_replace("$","$$$",$this->pro['description']);
             $this->pro['input'] = strip_tags(self::find('/>[\s]*Input([\s\S]*?)>[\s]*Out?put/',$res->body));
+            $this->pro['input'] = str_replace("$", "$$$", $this->pro['input']);
             $this->pro['output'] = strip_tags(self::find('/>[\s]*Out?put([\s\S]*?)>[\s]*Sample Input/',$res->body));
+            $this->pro['output'] = str_replace("$", "$$$", $this->pro['output']);
             $this->pro['sample'] = [];
             $sample_output = trim(strip_tags(self::find("/>Sample Out?put([\s\S]*?)<hr/",$res->body)));
-            if(strpos($sample_output,"Hint") != false) {
+            if(strpos($sample_output,"Hint") !== false) {
                 $length = strpos($sample_output,"Hint");
                 $sample_output = substr($sample_output,0,$length);
             }

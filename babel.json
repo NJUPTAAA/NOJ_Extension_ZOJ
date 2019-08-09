@@ -6,7 +6,7 @@
     "description": "ZOJ Interface for NOJ",
     "license": "MIT",
     "repository":"https://github.com/NJUPTAAA/NOJ_Extension_ZOJ",
-    "version":"0.1.7",
+    "version":"0.1.8",
     "website":"http://acm.zju.edu.cn/",
     "custom":{
         "css":"resources/custom.css"
